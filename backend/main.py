@@ -1,5 +1,6 @@
-from fastapi import FastAPI,Query
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+import meilisearch
 
 app = FastAPI(
     title="PrivySearch API",
@@ -7,7 +8,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Allow requests from our React frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -19,36 +19,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Connect to local Meilisearch
+client = meilisearch.Client("http://127.0.0.1:7700")
+
+# Search index
+index = client.index("documents")
+
 
 @app.get("/api/health")
 def health_check():
     return {
         "status": "healthy",
-        "service": "PrivySearch API"
+        "service": "PrivySearch API",
+        "meilisearch": "connected"
     }
-
-
 
 
 @app.get("/api/search")
 def search(query: str = Query(..., min_length=1)):
-    results = [
-        {
-            "title": "Python Documentation",
-            "url": "https://docs.python.org/3/",
-            "description": "Official documentation and resources for Python.",
-        },
-        {
-            "title": "Python Programming Guide",
-            "url": "https://www.python.org/",
-            "description": "Learn about Python programming, tools, and resources.",
-        },
-        {
-            "title": "Python Tutorial",
-            "url": "https://docs.python.org/3/tutorial/",
-            "description": "An introduction to Python programming for beginners.",
-        },
-    ]
+
+    search_result = index.search(query)
+
+    results = []
+
+    for hit in search_result["hits"]:
+        results.append({
+            "title": hit.get("title", ""),
+            "url": hit.get("url", ""),
+            "description": hit.get("description", "")
+        })
 
     return {
         "query": query,
