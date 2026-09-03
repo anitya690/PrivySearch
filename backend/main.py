@@ -13,6 +13,10 @@ app = FastAPI(
 )
 
 
+# -----------------------------
+# CORS
+# -----------------------------
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -34,11 +38,16 @@ index = client.index("documents")
 
 
 # -----------------------------
-# Semantic Search
+# Documents + Semantic Search
 # -----------------------------
 
-with open("crawler/scraped_data.json", "r", encoding="utf-8") as file:
+with open(
+    "crawler/all_documents.json",
+    "r",
+    encoding="utf-8"
+) as file:
     documents = json.load(file)
+
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -51,6 +60,7 @@ vector_index = faiss.read_index("documents.index")
 
 @app.get("/api/health")
 def health_check():
+
     return {
         "status": "healthy",
         "service": "PrivySearch API",
@@ -60,52 +70,101 @@ def health_check():
 
 
 # -----------------------------
-# Search
+# Hybrid Search
 # -----------------------------
 
 @app.get("/api/search")
 def search(query: str = Query(..., min_length=1)):
 
-    # Keyword search
-    keyword_result = index.search(query)
+    # =============================
+    # Keyword Search
+    # =============================
 
-    keyword_results = []
+    keyword_response = index.search(
+        query,
+        {"limit": 3}
+    )
 
-    for hit in keyword_result["hits"]:
-        keyword_results.append({
-            "title": hit.get("title", ""),
-            "url": hit.get("url", ""),
-            "description": hit.get("description", "")
-        })
+    keyword_results = keyword_response["hits"]
+
+    keyword_scores = [1.0, 0.67, 0.33]
+
+    combined = {}
+
+    for rank, doc in enumerate(keyword_results):
+
+        doc_id = doc["id"]
+
+        combined[doc_id] = {
+            "title": doc.get("title", ""),
+            "url": doc.get("url", ""),
+            "description": doc.get("description", ""),
+            "keyword_score": keyword_scores[rank],
+            "semantic_score": 0.0
+        }
 
 
-    # Semantic search
-    query_embedding = model.encode([query]).astype("float32")
+    # =============================
+    # Semantic Search
+    # =============================
+
+    query_embedding = model.encode(
+        [query]
+    ).astype("float32")
 
     distances, indices = vector_index.search(
         query_embedding,
         3
     )
 
-    semantic_results = []
+    semantic_scores = [1.0, 0.67, 0.33]
 
-    for idx, distance in zip(indices[0], distances[0]):
+    for rank, idx in enumerate(indices[0]):
 
         if idx == -1:
             continue
 
         doc = documents[idx]
+        doc_id = doc["id"]
 
-        semantic_results.append({
-            "title": doc["title"],
-            "url": doc["url"],
-            "description": doc["description"],
-            "distance": float(distance)
-        })
+        if doc_id not in combined:
+
+            combined[doc_id] = {
+                "title": doc["title"],
+                "url": doc["url"],
+                "description": doc["description"],
+                "keyword_score": 0.0,
+                "semantic_score": 0.0
+            }
+
+        combined[doc_id]["semantic_score"] = semantic_scores[rank]
+
+
+    # =============================
+    # Hybrid Score
+    # =============================
+
+    for doc in combined.values():
+
+        doc["hybrid_score"] = round(
+            0.2 * doc["keyword_score"]
+            + 0.8 * doc["semantic_score"],
+            2
+        )
+
+
+    # =============================
+    # Final Ranking
+    # =============================
+
+    results = sorted(
+        combined.values(),
+        key=lambda x: x["hybrid_score"],
+        reverse=True
+    )
 
 
     return {
         "query": query,
-        "keyword_results": keyword_results,
-        "semantic_results": semantic_results
+        "results": results
     }

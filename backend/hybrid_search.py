@@ -23,53 +23,66 @@ vector_index = faiss.read_index("documents.index")
 query = input("Enter your search query: ")
 
 
-# -----------------------------
+# ==========================================
 # Keyword Search
-# -----------------------------
+# ==========================================
 
-keyword_response = index.search(query, {"limit": 3})
+keyword_response = index.search(
+    query,
+    {"limit": 5}
+)
+
 keyword_results = keyword_response["hits"]
 
 
-# -----------------------------
+# ==========================================
 # Semantic Search
-# -----------------------------
+# ==========================================
 
 query_embedding = model.encode([query]).astype("float32")
 
 distances, indices = vector_index.search(
     query_embedding,
-    3
+    5
 )
 
 
-# -----------------------------
-# Combine Results
-# -----------------------------
+# ==========================================
+# Reciprocal Rank Fusion (RRF)
+# ==========================================
 
 combined = {}
 
+# RRF constant
+k = 60
 
-# Keyword ranking scores
-keyword_scores = [1.0, 0.67, 0.33]
 
-for rank, doc in enumerate(keyword_results):
+# -----------------------------
+# Keyword Results
+# -----------------------------
+
+for rank, doc in enumerate(keyword_results, start=1):
 
     doc_id = doc["id"]
 
-    combined[doc_id] = {
-        "title": doc.get("title", ""),
-        "url": doc.get("url", ""),
-        "description": doc.get("description", ""),
-        "keyword_score": keyword_scores[rank],
-        "semantic_score": 0.0
-    }
+    if doc_id not in combined:
+        combined[doc_id] = {
+            "title": doc.get("title", ""),
+            "url": doc.get("url", ""),
+            "description": doc.get("description", ""),
+            "keyword_score": 0.0,
+            "semantic_score": 0.0,
+            "rrf_score": 0.0
+        }
+
+    combined[doc_id]["keyword_score"] = 1 / (k + rank)
 
 
-# Semantic ranking scores
-semantic_scores = [1.0, 0.67, 0.33]
+# -----------------------------
+# Semantic Results
+# -----------------------------
 
-for rank, idx in enumerate(indices[0]):
+for rank, idx in enumerate(indices[0], start=1):
 
     if idx == -1:
         continue
@@ -83,46 +96,56 @@ for rank, idx in enumerate(indices[0]):
             "url": doc["url"],
             "description": doc["description"],
             "keyword_score": 0.0,
-            "semantic_score": 0.0
+            "semantic_score": 0.0,
+            "rrf_score": 0.0
         }
 
-    combined[doc_id]["semantic_score"] = semantic_scores[rank]
+    combined[doc_id]["semantic_score"] = 1 / (k + rank)
 
 
-# -----------------------------
-# Hybrid Score
-# -----------------------------
+# ==========================================
+# Calculate Final RRF Score
+# ==========================================
 
 for doc in combined.values():
 
-    doc["hybrid_score"] = (
-        0.5 * doc["keyword_score"]
-        + 0.5 * doc["semantic_score"]
+    doc["rrf_score"] = (
+        doc["keyword_score"]
+        + doc["semantic_score"]
     )
 
 
-# -----------------------------
+# ==========================================
 # Final Ranking
-# -----------------------------
+# ==========================================
 
 results = sorted(
     combined.values(),
-    key=lambda x: x["hybrid_score"],
+    key=lambda x: x["rrf_score"],
     reverse=True
 )
 
 
-# -----------------------------
+# ==========================================
 # Display Results
-# -----------------------------
+# ==========================================
 
-print("\nHybrid Search Results:\n")
+print("\nHybrid Search Results (RRF):\n")
 
 for rank, result in enumerate(results, start=1):
 
     print(f"{rank}. {result['title']}")
     print(f"URL: {result['url']}")
-    print(f"Keyword Score: {result['keyword_score']:.2f}")
-    print(f"Semantic Score: {result['semantic_score']:.2f}")
-    print(f"Hybrid Score: {result['hybrid_score']:.2f}")
+    print(
+        f"Keyword RRF Score: "
+        f"{result['keyword_score']:.4f}"
+    )
+    print(
+        f"Semantic RRF Score: "
+        f"{result['semantic_score']:.4f}"
+    )
+    print(
+        f"Final RRF Score: "
+        f"{result['rrf_score']:.4f}"
+    )
     print()
