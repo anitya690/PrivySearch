@@ -28,7 +28,6 @@ query = input("Enter your search query: ")
 # -----------------------------
 
 keyword_response = index.search(query, {"limit": 3})
-
 keyword_results = keyword_response["hits"]
 
 
@@ -51,7 +50,9 @@ distances, indices = vector_index.search(
 combined = {}
 
 
-# Add keyword results
+# Keyword ranking scores
+keyword_scores = [1.0, 0.67, 0.33]
+
 for rank, doc in enumerate(keyword_results):
 
     doc_id = doc["id"]
@@ -60,12 +61,14 @@ for rank, doc in enumerate(keyword_results):
         "title": doc.get("title", ""),
         "url": doc.get("url", ""),
         "description": doc.get("description", ""),
-        "keyword_score": 3 - rank,
-        "semantic_score": 0
+        "keyword_score": keyword_scores[rank],
+        "semantic_score": 0.0
     }
 
 
-# Add semantic results
+# Semantic ranking scores
+semantic_scores = [1.0, 0.67, 0.33]
+
 for rank, idx in enumerate(indices[0]):
 
     if idx == -1:
@@ -79,11 +82,11 @@ for rank, idx in enumerate(indices[0]):
             "title": doc["title"],
             "url": doc["url"],
             "description": doc["description"],
-            "keyword_score": 0,
-            "semantic_score": 0
+            "keyword_score": 0.0,
+            "semantic_score": 0.0
         }
 
-    combined[doc_id]["semantic_score"] = 3 - rank
+    combined[doc_id]["semantic_score"] = semantic_scores[rank]
 
 
 # -----------------------------
@@ -98,7 +101,10 @@ for doc in combined.values():
     )
 
 
-# Sort by hybrid score
+# -----------------------------
+# Final Ranking
+# -----------------------------
+
 results = sorted(
     combined.values(),
     key=lambda x: x["hybrid_score"],
@@ -116,6 +122,7 @@ for rank, result in enumerate(results, start=1):
 
     print(f"{rank}. {result['title']}")
     print(f"URL: {result['url']}")
+    print(f"Keyword Score: {result['keyword_score']:.2f}")
+    print(f"Semantic Score: {result['semantic_score']:.2f}")
     print(f"Hybrid Score: {result['hybrid_score']:.2f}")
     print()
-    
