@@ -74,7 +74,6 @@ index = client.index("documents")
 DOCUMENTS_FILE = BASE_DIR / "crawler" / "all_documents.json"
 FAISS_INDEX_FILE = BASE_DIR / "documents.index"
 
-
 with open(
     DOCUMENTS_FILE,
     "r",
@@ -83,7 +82,27 @@ with open(
     documents = json.load(file)
 
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# -----------------------------
+# Lazy-loaded Sentence Transformer
+# -----------------------------
+
+model = None
+
+
+def get_model():
+    global model
+
+    if model is None:
+        model = SentenceTransformer(
+            "all-MiniLM-L6-v2"
+        )
+
+    return model
+
+
+# -----------------------------
+# FAISS Index
+# -----------------------------
 
 vector_index = faiss.read_index(
     str(FAISS_INDEX_FILE)
@@ -224,7 +243,9 @@ def search(
     # Semantic Search
     # =============================
 
-    query_embedding = model.encode(
+    search_model = get_model()
+
+    query_embedding = search_model.encode(
         [query]
     ).astype("float32")
 

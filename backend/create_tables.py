@@ -1,15 +1,6 @@
 import os
-import psycopg2
-
-
-connection = psycopg2.connect(
-    host=os.getenv("POSTGRES_HOST", "127.0.0.1"),
-    port=int(os.getenv("POSTGRES_PORT", "5433")),
-    database=os.getenv("POSTGRES_DB", "privysearch"),
-    user=os.getenv("POSTGRES_USER", "privysearch"),
-    password=os.environ["POSTGRES_PASSWORD"]
-)
-
+from database import get_connection
+connection = get_connection()
 cursor = connection.cursor()
 
 cursor.execute("""
