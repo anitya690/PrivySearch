@@ -4,6 +4,7 @@ import meilisearch
 import faiss
 import json
 from sentence_transformers import SentenceTransformer
+from database import get_connection
 
 
 app = FastAPI(
@@ -61,14 +62,61 @@ vector_index = faiss.read_index("documents.index")
 @app.get("/api/health")
 def health_check():
 
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM documents;")
+    document_count = cursor.fetchone()[0]
+
+    cursor.close()
+    connection.close()
+
     return {
         "status": "healthy",
         "service": "PrivySearch API",
         "meilisearch": "connected",
-        "faiss": "connected"
+        "faiss": "connected",
+        "postgresql": "connected",
+        "documents_in_db": document_count
+    }
+@app.get("/api/privacy")
+def privacy_info():
+    return {
+        "privacy_by_design": True,
+        "search_history": {
+            "stored": False,
+            "description": "Search queries are not stored as permanent user history."
+        },
+        "user_profiling": {
+            "enabled": False,
+            "description": "No user profiles are created from search activity."
+        },
+        "tracking": {
+            "third_party_trackers": False,
+            "description": "No unnecessary third-party tracking technologies are used."
+        },
+        "data_collection": {
+            "query_storage": False,
+            "user_identification": False
+        }
     }
 
 
+# -----------------------------
+# Evaluation Report
+# -----------------------------
+
+@app.get("/api/evaluation")
+def evaluation_report():
+
+    with open(
+        "evaluation/evaluation_report.json",
+        "r",
+        encoding="utf-8"
+    ) as file:
+        report = json.load(file)
+
+    return report
 # -----------------------------
 # Hybrid Search
 # -----------------------------

@@ -7,7 +7,12 @@ function App() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
+
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [privacyData, setPrivacyData] = useState(null);
+
+  const [showEvaluation, setShowEvaluation] = useState(false);
+  const [evaluationData, setEvaluationData] = useState(null);
 
   // -----------------------------
   // Backend Health Check
@@ -19,12 +24,62 @@ function App() {
         "http://127.0.0.1:8000/api/health"
       );
 
+      if (!response.ok) {
+        throw new Error("Health API request failed");
+      }
+
       const data = await response.json();
 
-      setBackendStatus(`${data.service} is ${data.status}`);
+      setBackendStatus(
+        `${data.service} is ${data.status}`
+      );
     } catch (error) {
       setBackendStatus("Backend connection failed");
       console.error(error);
+    }
+  };
+
+  // -----------------------------
+  // Load Privacy Information
+  // -----------------------------
+
+  const loadPrivacyData = async () => {
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/privacy"
+      );
+
+      if (!response.ok) {
+        throw new Error("Privacy API request failed");
+      }
+
+      const data = await response.json();
+
+      setPrivacyData(data);
+    } catch (error) {
+      console.error("Privacy API error:", error);
+    }
+  };
+
+  // -----------------------------
+  // Load Evaluation Report
+  // -----------------------------
+
+  const loadEvaluationData = async () => {
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/evaluation"
+      );
+
+      if (!response.ok) {
+        throw new Error("Evaluation API request failed");
+      }
+
+      const data = await response.json();
+
+      setEvaluationData(data);
+    } catch (error) {
+      console.error("Evaluation API error:", error);
     }
   };
 
@@ -66,10 +121,21 @@ function App() {
     }
   };
 
+  // -----------------------------
+  // Open Evaluation Dashboard
+  // -----------------------------
+
+  const openEvaluation = () => {
+    setShowEvaluation(true);
+    loadEvaluationData();
+  };
+
   return (
     <div className="app">
 
-      {/* ================= HEADER ================= */}
+      {/* ============================= */}
+      {/* Header */}
+      {/* ============================= */}
 
       <header className="header">
 
@@ -78,19 +144,36 @@ function App() {
           <span>PrivySearch</span>
         </div>
 
-        <button
-          className="privacy-btn"
-          onClick={() => setShowPrivacy(true)}
-        >
-          🛡️ Privacy Center
-        </button>
+        <div className="header-actions">
+
+          <button
+            className="evaluation-btn"
+            onClick={openEvaluation}
+          >
+            📊 Evaluation
+          </button>
+
+          <button
+            className="privacy-btn"
+            onClick={() => {
+              setShowPrivacy(true);
+              loadPrivacyData();
+            }}
+          >
+            🛡️ Privacy Center
+          </button>
+
+        </div>
 
       </header>
 
 
-      {/* ================= PRIVACY CENTER ================= */}
+      {/* ============================= */}
+      {/* Privacy Center */}
+      {/* ============================= */}
 
       {showPrivacy && (
+
         <div className="privacy-panel">
 
           <div className="privacy-panel-content">
@@ -110,90 +193,182 @@ function App() {
 
 
             <p className="privacy-intro">
-              PrivySearch is designed to minimize unnecessary
-              data collection while providing useful search
-              results.
+              PrivySearch is designed to minimize
+              unnecessary data collection while
+              providing useful search results.
             </p>
 
 
-            <div className="privacy-items">
+            {/* Privacy data loaded from backend */}
 
-              <div className="privacy-item">
+            {privacyData ? (
 
-                <span>✅</span>
+              <div className="privacy-items">
 
-                <div>
-                  <strong>
-                    No permanent search history
-                  </strong>
+                <div className="privacy-item">
 
-                  <p>
-                    Search queries are not stored as a
-                    permanent user history.
-                  </p>
+                  <span>
+                    {privacyData.search_history.stored
+                      ? "⚠️"
+                      : "✅"}
+                  </span>
+
+                  <div>
+
+                    <strong>
+                      No permanent search history
+                    </strong>
+
+                    <p>
+                      {
+                        privacyData.search_history
+                          .description
+                      }
+                    </p>
+
+                  </div>
+
+                </div>
+
+
+                <div className="privacy-item">
+
+                  <span>
+                    {privacyData.user_profiling.enabled
+                      ? "⚠️"
+                      : "✅"}
+                  </span>
+
+                  <div>
+
+                    <strong>
+                      No user profiling
+                    </strong>
+
+                    <p>
+                      {
+                        privacyData.user_profiling
+                          .description
+                      }
+                    </p>
+
+                  </div>
+
+                </div>
+
+
+                <div className="privacy-item">
+
+                  <span>
+                    {privacyData.tracking
+                      .third_party_trackers
+                      ? "⚠️"
+                      : "✅"}
+                  </span>
+
+                  <div>
+
+                    <strong>
+                      No unnecessary tracking
+                    </strong>
+
+                    <p>
+                      {
+                        privacyData.tracking
+                          .description
+                      }
+                    </p>
+
+                  </div>
+
+                </div>
+
+
+                <div className="privacy-item">
+
+                  <span>
+                    {privacyData.privacy_by_design
+                      ? "🔒"
+                      : "⚠️"}
+                  </span>
+
+                  <div>
+
+                    <strong>
+                      Privacy by design
+                    </strong>
+
+                    <p>
+                      Privacy controls are enforced
+                      through the backend architecture.
+                    </p>
+
+                  </div>
+
+                </div>
+
+
+                <div className="privacy-item">
+
+                  <span>
+                    {privacyData.data_collection
+                      .query_storage
+                      ? "⚠️"
+                      : "✅"}
+                  </span>
+
+                  <div>
+
+                    <strong>
+                      Query storage disabled
+                    </strong>
+
+                    <p>
+                      Search queries are not stored
+                      as permanent user data.
+                    </p>
+
+                  </div>
+
+                </div>
+
+
+                <div className="privacy-item">
+
+                  <span>
+                    {privacyData.data_collection
+                      .user_identification
+                      ? "⚠️"
+                      : "✅"}
+                  </span>
+
+                  <div>
+
+                    <strong>
+                      No user identification
+                    </strong>
+
+                    <p>
+                      The search system does not require
+                      user identification for searching.
+                    </p>
+
+                  </div>
+
                 </div>
 
               </div>
 
+            ) : (
 
-              <div className="privacy-item">
-
-                <span>✅</span>
-
-                <div>
-                  <strong>
-                    No user profiling
-                  </strong>
-
-                  <p>
-                    PrivySearch does not build personal
-                    search profiles based on user queries.
-                  </p>
-                </div>
-
+              <div className="search-message">
+                🔒 Loading privacy information...
               </div>
 
-
-              <div className="privacy-item">
-
-                <span>✅</span>
-
-                <div>
-                  <strong>
-                    No unnecessary tracking
-                  </strong>
-
-                  <p>
-                    The project avoids unnecessary
-                    third-party trackers and tracking
-                    technologies.
-                  </p>
-                </div>
-
-              </div>
+            )}
 
 
-              <div className="privacy-item">
-
-                <span>🔒</span>
-
-                <div>
-                  <strong>
-                    Privacy by design
-                  </strong>
-
-                  <p>
-                    Privacy considerations are included
-                    directly in the system architecture.
-                  </p>
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* API Status */}
+            {/* Backend status */}
 
             <button
               className="privacy-api-check"
@@ -204,18 +379,333 @@ function App() {
 
 
             {backendStatus && (
+
               <div className="backend-status">
                 🟢 {backendStatus}
               </div>
+
             )}
 
           </div>
 
         </div>
+
       )}
 
 
-      {/* ================= MAIN ================= */}
+      {/* ============================= */}
+      {/* Evaluation Dashboard */}
+      {/* ============================= */}
+
+      {showEvaluation && (
+
+        <div className="evaluation-panel">
+
+          <div className="evaluation-panel-content">
+
+            <div className="evaluation-header">
+
+              <div>
+                <h2>📊 Search Evaluation</h2>
+
+                <p>
+                  Benchmark performance of the PrivySearch
+                  retrieval system.
+                </p>
+              </div>
+
+              <button
+                className="privacy-close"
+                onClick={() => setShowEvaluation(false)}
+              >
+                ×
+              </button>
+
+            </div>
+
+
+            {evaluationData ? (
+
+              <>
+
+                {/* ============================= */}
+                {/* Metric Cards */}
+                {/* ============================= */}
+
+                <div className="evaluation-metrics">
+
+                  <div className="metric-card">
+
+                    <span className="metric-icon">
+                      🎯
+                    </span>
+
+                    <div>
+                      <span className="metric-label">
+                        Top-1 Accuracy
+                      </span>
+
+                      <strong>
+                        {evaluationData.top1_accuracy}%
+                      </strong>
+                    </div>
+
+                  </div>
+
+
+                  <div className="metric-card">
+
+                    <span className="metric-icon">
+                      🏆
+                    </span>
+
+                    <div>
+                      <span className="metric-label">
+                        Top-3 Accuracy
+                      </span>
+
+                      <strong>
+                        {evaluationData.top3_accuracy}%
+                      </strong>
+                    </div>
+
+                  </div>
+
+
+                  <div className="metric-card">
+
+                    <span className="metric-icon">
+                      ⚡
+                    </span>
+
+                    <div>
+                      <span className="metric-label">
+                        Average Latency
+                      </span>
+
+                      <strong>
+                        {evaluationData.average_latency_ms} ms
+                      </strong>
+                    </div>
+
+                  </div>
+
+
+                  <div className="metric-card">
+
+                    <span className="metric-icon">
+                      📈
+                    </span>
+
+                    <div>
+                      <span className="metric-label">
+                        P50 Latency
+                      </span>
+
+                      <strong>
+                        {evaluationData.p50_latency_ms} ms
+                      </strong>
+                    </div>
+
+                  </div>
+
+
+                  <div className="metric-card">
+
+                    <span className="metric-icon">
+                      🚀
+                    </span>
+
+                    <div>
+                      <span className="metric-label">
+                        P95 Latency
+                      </span>
+
+                      <strong>
+                        {evaluationData.p95_latency_ms} ms
+                      </strong>
+                    </div>
+
+                  </div>
+
+
+                  <div className="metric-card">
+
+                    <span className="metric-icon">
+                      🔎
+                    </span>
+
+                    <div>
+                      <span className="metric-label">
+                        Benchmark Queries
+                      </span>
+
+                      <strong>
+                        {evaluationData.total_queries}
+                      </strong>
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                {/* ============================= */}
+                {/* Benchmark Results */}
+                {/* ============================= */}
+
+                <div className="evaluation-results">
+
+                  <h3>
+                    Benchmark Query Results
+                  </h3>
+
+                  <div className="evaluation-table-wrapper">
+
+                    <table className="evaluation-table">
+
+                      <thead>
+
+                        <tr>
+                          <th>Query</th>
+                          <th>Expected Result</th>
+                          <th>Top Result</th>
+                          <th>Top-1</th>
+                          <th>Top-3</th>
+                          <th>Latency</th>
+                        </tr>
+
+                      </thead>
+
+                      <tbody>
+
+                        {evaluationData.results.map(
+                          (item, index) => (
+
+                            <tr key={index}>
+
+                              <td>
+                                {item.query}
+                              </td>
+
+                              <td>
+                                {item.expected}
+                              </td>
+
+                              <td>
+                                {item.top_result}
+                              </td>
+
+                              <td>
+
+                                <span
+                                  className={
+                                    item.top1
+                                      ? "eval-pass"
+                                      : "eval-fail"
+                                  }
+                                >
+                                  {item.top1
+                                    ? "✓ Pass"
+                                    : "✗ Miss"}
+                                </span>
+
+                              </td>
+
+                              <td>
+
+                                <span
+                                  className={
+                                    item.top3
+                                      ? "eval-pass"
+                                      : "eval-fail"
+                                  }
+                                >
+                                  {item.top3
+                                    ? "✓ Pass"
+                                    : "✗ Miss"}
+                                </span>
+
+                              </td>
+
+                              <td>
+                                {item.latency_ms} ms
+                              </td>
+
+                            </tr>
+
+                          )
+                        )}
+
+                      </tbody>
+
+                    </table>
+
+                  </div>
+
+                </div>
+
+
+                {/* ============================= */}
+                {/* Evaluation Summary */}
+                {/* ============================= */}
+
+                <div className="evaluation-summary">
+
+                  <div className="summary-icon">
+                    💡
+                  </div>
+
+                  <div>
+
+                    <strong>
+                      Evaluation Summary
+                    </strong>
+
+                    <p>
+                      PrivySearch achieved{" "}
+                      <b>
+                        {evaluationData.top1_accuracy}%
+                      </b>{" "}
+                      Top-1 accuracy and{" "}
+                      <b>
+                        {evaluationData.top3_accuracy}%
+                      </b>{" "}
+                      Top-3 accuracy across{" "}
+                      <b>
+                        {evaluationData.total_queries}
+                      </b>{" "}
+                      benchmark queries.
+                      Average search latency was{" "}
+                      <b>
+                        {evaluationData.average_latency_ms} ms
+                      </b>.
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </>
+
+            ) : (
+
+              <div className="search-message">
+                📊 Loading evaluation report...
+              </div>
+
+            )}
+
+          </div>
+
+        </div>
+
+      )}
+
+
+      {/* ============================= */}
+      {/* Main */}
+      {/* ============================= */}
 
       <main className="main">
 
@@ -232,11 +722,12 @@ function App() {
 
 
           <p className="subtitle">
-            A privacy-conscious search engine built for the web.
+            A privacy-conscious search engine built
+            for the web.
           </p>
 
 
-          {/* ================= SEARCH ================= */}
+          {/* Search Form */}
 
           <form
             className="search-form"
@@ -261,6 +752,7 @@ function App() {
 
 
               {query && (
+
                 <button
                   type="button"
                   className="clear-btn"
@@ -268,6 +760,7 @@ function App() {
                 >
                   ×
                 </button>
+
               )}
 
             </div>
@@ -278,13 +771,15 @@ function App() {
               className="search-btn"
               disabled={loading}
             >
-              {loading ? "Searching..." : "Search"}
+              {loading
+                ? "Searching..."
+                : "Search"}
             </button>
 
           </form>
 
 
-          {/* ================= PRIVACY NOTE ================= */}
+          {/* Privacy Note */}
 
           <div className="privacy-note">
 
@@ -303,25 +798,31 @@ function App() {
           </div>
 
 
-          {/* ================= LOADING ================= */}
+          {/* Loading */}
 
           {loading && (
+
             <div className="search-message">
               🔎 Searching...
             </div>
+
           )}
 
 
-          {/* ================= ERROR ================= */}
+          {/* Error */}
 
           {searchError && (
+
             <div className="search-error">
               ❌ {searchError}
             </div>
+
           )}
 
 
-          {/* ================= RESULTS ================= */}
+          {/* ============================= */}
+          {/* Results */}
+          {/* ============================= */}
 
           {results.length > 0 && (
 
@@ -384,7 +885,9 @@ function App() {
       </main>
 
 
-      {/* ================= FEATURES ================= */}
+      {/* ============================= */}
+      {/* Features */}
+      {/* ============================= */}
 
       <section className="features">
 
@@ -399,8 +902,8 @@ function App() {
           </h3>
 
           <p>
-            Minimal data collection with no permanent
-            search-history profiles.
+            Minimal data collection with no
+            permanent search-history profiles.
           </p>
 
         </div>
@@ -417,8 +920,8 @@ function App() {
           </h3>
 
           <p>
-            Find relevant information based on meaning,
-            not just exact words.
+            Find relevant information based on
+            meaning, not just exact words.
           </p>
 
         </div>
@@ -435,8 +938,8 @@ function App() {
           </h3>
 
           <p>
-            Combine keyword and semantic retrieval for
-            better results.
+            Combine keyword and semantic retrieval
+            for better results.
           </p>
 
         </div>
@@ -444,7 +947,9 @@ function App() {
       </section>
 
 
-      {/* ================= FOOTER ================= */}
+      {/* ============================= */}
+      {/* Footer */}
+      {/* ============================= */}
 
       <footer className="footer">
 
@@ -453,7 +958,8 @@ function App() {
         </span>
 
         <span>
-          Privacy-conscious search • Built as a learning project
+          Privacy-conscious search • Built as
+          a learning project
         </span>
 
       </footer>

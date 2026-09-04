@@ -1,0 +1,90 @@
+{
+  "total_queries": 10,
+  "top1_accuracy": 80.0,
+  "top3_accuracy": 100.0,
+  "average_latency_ms": 29.23,
+  "p50_latency_ms": 29.85,
+  "p95_latency_ms": 32.06,
+  "results": [
+    {
+      "query": "how to handle errors in Python",
+      "expected": "8. Errors and Exceptions",
+      "top_result": "8. Errors and Exceptions",
+      "top1": true,
+      "top3": true,
+      "latency_ms": 34.75
+    },
+    {
+      "query": "how to create a Python class",
+      "expected": "9. Classes",
+      "top_result": "9. Classes",
+      "top1": true,
+      "top3": true,
+      "latency_ms": 28.2
+    },
+    {
+      "query": "how to work with lists",
+      "expected": "5. Data Structures",
+      "top_result": "5. Data Structures",
+      "top1": true,
+      "top3": true,
+      "latency_ms": 27.22
+    },
+    {
+      "query": "how to import modules",
+      "expected": "6. Modules",
+      "top_result": "import()",
+      "top1": false,
+      "top3": true,
+      "latency_ms": 25.07
+    },
+    {
+      "query": "how to read and write files",
+      "expected": "7. Input and Output",
+      "top_result": "10. Brief tour of the standard library",
+      "top1": false,
+      "top3": true,
+      "latency_ms": 29.09
+    },
+    {
+      "query": "how to use virtual environments",
+      "expected": "12. Virtual Environments and Packages",
+      "top_result": "12. Virtual Environments and Packages",
+      "top1": true,
+      "top3": true,
+      "latency_ms": 23.74
+    },
+    {
+      "query": "how to use the Python interpreter",
+      "expected": "2. Using the Python Interpreter",
+      "top_result": "2. Using the Python Interpreter",
+      "top1": true,
+      "top3": true,
+      "latency_ms": 32.06
+    },
+    {
+      "query": "how to take input from a user",
+      "expected": "7. Input and Output",
+      "top_result": "7. Input and Output",
+      "top1": true,
+      "top3": true,
+      "latency_ms": 30.94
+    },
+    {
+      "query": "what are exceptions in Python",
+      "expected": "8. Errors and Exceptions",
+      "top_result": "8. Errors and Exceptions",
+      "top1": true,
+      "top3": true,
+      "latency_ms": 29.85
+    },
+    {
+      "query": "how to control program flow",
+      "expected": "4. More Control Flow Tools",
+      "top_result": "4. More Control Flow Tools",
+      "top1": true,
+      "top3": true,
+      "latency_ms": 31.36
+    }
+  ]
+}
