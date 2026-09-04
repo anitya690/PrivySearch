@@ -1,6 +1,8 @@
 import { useState } from "react";
 import "./App.css";
 
+const API_URL = "https://privysearch.onrender.com";
+
 function App() {
   const [query, setQuery] = useState("");
   const [backendStatus, setBackendStatus] = useState("");
@@ -21,7 +23,7 @@ function App() {
   const checkBackend = async () => {
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/health"
+        `${API_URL}/api/health`
       );
 
       if (!response.ok) {
@@ -46,7 +48,7 @@ function App() {
   const loadPrivacyData = async () => {
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/privacy"
+        `${API_URL}/api/privacy`
       );
 
       if (!response.ok) {
@@ -68,7 +70,7 @@ function App() {
   const loadEvaluationData = async () => {
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/evaluation"
+        `${API_URL}/api/evaluation`
       );
 
       if (!response.ok) {
@@ -98,7 +100,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/search?query=${encodeURIComponent(
+        `${API_URL}/api/search?query=${encodeURIComponent(
           query
         )}`
       );
