@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-meilisearch
 faiss-cpu
-sentence-transformers
+fastembed
 psycopg2-binary

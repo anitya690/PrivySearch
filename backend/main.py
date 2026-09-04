@@ -1,11 +1,11 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-import meilisearch
 import faiss
 import json
 import os
+import re
 from pathlib import Path
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from database import get_connection
 
 
@@ -20,11 +20,6 @@ BASE_DIR = Path(__file__).resolve().parent
 # Environment Variables
 # -----------------------------
 
-MEILISEARCH_URL = os.getenv(
-    "MEILISEARCH_URL",
-    "http://127.0.0.1:7700"
-)
-
 FRONTEND_URL = os.getenv(
     "FRONTEND_URL",
     "http://localhost:5173"
@@ -37,7 +32,7 @@ FRONTEND_URL = os.getenv(
 
 app = FastAPI(
     title="PrivySearch API",
-    description="Privacy-first search engine backend",
+    description="Privacy-first semantic search engine",
     version="1.0.0"
 )
 
@@ -60,19 +55,20 @@ app.add_middleware(
 
 
 # -----------------------------
-# Meilisearch
+# Load Documents
 # -----------------------------
 
-client = meilisearch.Client(MEILISEARCH_URL)
-index = client.index("documents")
+DOCUMENTS_FILE = (
+    BASE_DIR
+    / "crawler"
+    / "all_documents.json"
+)
 
+FAISS_INDEX_FILE = (
+    BASE_DIR
+    / "documents.index"
+)
 
-# -----------------------------
-# Documents + Semantic Search
-# -----------------------------
-
-DOCUMENTS_FILE = BASE_DIR / "crawler" / "all_documents.json"
-FAISS_INDEX_FILE = BASE_DIR / "documents.index"
 
 with open(
     DOCUMENTS_FILE,
@@ -83,30 +79,76 @@ with open(
 
 
 # -----------------------------
-# Lazy-loaded Sentence Transformer
+# FastEmbed
 # -----------------------------
 
-model = None
-
-
-def get_model():
-    global model
-
-    if model is None:
-        model = SentenceTransformer(
-            "all-MiniLM-L6-v2"
-        )
-
-    return model
+embedding_model = TextEmbedding(
+    model_name="BAAI/bge-small-en-v1.5"
+)
 
 
 # -----------------------------
-# FAISS Index
+# FAISS
 # -----------------------------
 
 vector_index = faiss.read_index(
     str(FAISS_INDEX_FILE)
 )
+
+
+# -----------------------------
+# Keyword Search
+# -----------------------------
+
+def keyword_search(query, limit=3):
+
+    query_words = set(
+        re.findall(
+            r"\b\w+\b",
+            query.lower()
+        )
+    )
+
+    scored_documents = []
+
+    for doc in documents:
+
+        title = doc.get(
+            "title",
+            ""
+        ).lower()
+
+        description = doc.get(
+            "description",
+            ""
+        ).lower()
+
+        text = f"{title} {description}"
+
+        score = 0
+
+        for word in query_words:
+
+            if word in title:
+                score += 3
+
+            if word in description:
+                score += 1
+
+        if score > 0:
+            scored_documents.append(
+                (score, doc)
+            )
+
+    scored_documents.sort(
+        key=lambda x: x[0],
+        reverse=True
+    )
+
+    return [
+        doc
+        for score, doc in scored_documents[:limit]
+    ]
 
 
 # -----------------------------
@@ -131,7 +173,7 @@ def health_check():
     return {
         "status": "healthy",
         "service": "PrivySearch API",
-        "meilisearch": "configured",
+        "keyword_search": "connected",
         "faiss": "connected",
         "postgresql": "connected",
         "documents_in_db": document_count
@@ -139,7 +181,7 @@ def health_check():
 
 
 # -----------------------------
-# Privacy Information
+# Privacy
 # -----------------------------
 
 @app.get("/api/privacy")
@@ -180,7 +222,7 @@ def privacy_info():
 
 
 # -----------------------------
-# Evaluation Report
+# Evaluation
 # -----------------------------
 
 @app.get("/api/evaluation")
@@ -215,26 +257,41 @@ def search(
     # Keyword Search
     # =============================
 
-    keyword_response = index.search(
+    keyword_results = keyword_search(
         query,
-        {"limit": 3}
+        limit=3
     )
 
-    keyword_results = keyword_response["hits"]
-
-    keyword_scores = [1.0, 0.67, 0.33]
+    keyword_scores = [
+        1.0,
+        0.67,
+        0.33
+    ]
 
     combined = {}
 
-    for rank, doc in enumerate(keyword_results):
+    for rank, doc in enumerate(
+        keyword_results
+    ):
 
         doc_id = doc["id"]
 
         combined[doc_id] = {
-            "title": doc.get("title", ""),
-            "url": doc.get("url", ""),
-            "description": doc.get("description", ""),
-            "keyword_score": keyword_scores[rank],
+            "title": doc.get(
+                "title",
+                ""
+            ),
+            "url": doc.get(
+                "url",
+                ""
+            ),
+            "description": doc.get(
+                "description",
+                ""
+            ),
+            "keyword_score": keyword_scores[
+                rank
+            ],
             "semantic_score": 0.0
         }
 
@@ -243,40 +300,64 @@ def search(
     # Semantic Search
     # =============================
 
-    search_model = get_model()
+    query_embedding = list(
+        embedding_model.embed(
+            [query]
+        )
+    )[0]
 
-    query_embedding = search_model.encode(
-        [query]
-    ).astype("float32")
-
-    distances, indices = vector_index.search(
-        query_embedding,
-        3
+    query_embedding = (
+        query_embedding
+        .astype("float32")
+        .reshape(1, -1)
     )
 
-    semantic_scores = [1.0, 0.67, 0.33]
+    distances, indices = (
+        vector_index.search(
+            query_embedding,
+            3
+        )
+    )
 
-    for rank, idx in enumerate(indices[0]):
+    semantic_scores = [
+        1.0,
+        0.67,
+        0.33
+    ]
+
+    for rank, idx in enumerate(
+        indices[0]
+    ):
 
         if idx == -1:
             continue
 
         doc = documents[idx]
+
         doc_id = doc["id"]
 
         if doc_id not in combined:
 
             combined[doc_id] = {
-                "title": doc["title"],
-                "url": doc["url"],
-                "description": doc["description"],
+                "title": doc.get(
+                    "title",
+                    ""
+                ),
+                "url": doc.get(
+                    "url",
+                    ""
+                ),
+                "description": doc.get(
+                    "description",
+                    ""
+                ),
                 "keyword_score": 0.0,
                 "semantic_score": 0.0
             }
 
-        combined[doc_id]["semantic_score"] = (
-            semantic_scores[rank]
-        )
+        combined[doc_id][
+            "semantic_score"
+        ] = semantic_scores[rank]
 
 
     # =============================
@@ -298,7 +379,9 @@ def search(
 
     results = sorted(
         combined.values(),
-        key=lambda x: x["hybrid_score"],
+        key=lambda x: x[
+            "hybrid_score"
+        ],
         reverse=True
     )
 
