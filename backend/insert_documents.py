@@ -1,3 +1,4 @@
+import json
 from database import get_connection
 
 # Load combined documents
