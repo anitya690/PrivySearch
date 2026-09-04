@@ -1,4 +1,5 @@
 import json
+import os
 import psycopg2
 
 
@@ -13,11 +14,11 @@ with open(
 
 # PostgreSQL connection
 connection = psycopg2.connect(
-    host="127.0.0.1",
-    port=5433,
-    database="privysearch",
-    user="privysearch",
-    password="privysearch123"
+    host=os.getenv("POSTGRES_HOST", "127.0.0.1"),
+    port=int(os.getenv("POSTGRES_PORT", "5433")),
+    database=os.getenv("POSTGRES_DB", "privysearch"),
+    user=os.getenv("POSTGRES_USER", "privysearch"),
+   password=os.environ["POSTGRES_PASSWORD"]
 )
 
 cursor = connection.cursor()
@@ -26,7 +27,11 @@ cursor = connection.cursor()
 # Insert documents
 for doc in documents:
 
-    source = "MDN" if "developer.mozilla.org" in doc["url"] else "Python Docs"
+    source = (
+        "MDN"
+        if "developer.mozilla.org" in doc["url"]
+        else "Python Docs"
+    )
 
     cursor.execute(
         """
@@ -52,7 +57,9 @@ for doc in documents:
 
 connection.commit()
 
-print(f"{len(documents)} documents inserted successfully!")
+print(
+    f"{len(documents)} documents inserted successfully!"
+)
 
 
 cursor.close()

@@ -3,9 +3,37 @@ from fastapi.middleware.cors import CORSMiddleware
 import meilisearch
 import faiss
 import json
+import os
+from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from database import get_connection
 
+
+# -----------------------------
+# Base Directory
+# -----------------------------
+
+BASE_DIR = Path(__file__).resolve().parent
+
+
+# -----------------------------
+# Environment Variables
+# -----------------------------
+
+MEILISEARCH_URL = os.getenv(
+    "MEILISEARCH_URL",
+    "http://127.0.0.1:7700"
+)
+
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:5173"
+)
+
+
+# -----------------------------
+# FastAPI
+# -----------------------------
 
 app = FastAPI(
     title="PrivySearch API",
@@ -21,6 +49,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        FRONTEND_URL,
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ],
@@ -34,7 +63,7 @@ app.add_middleware(
 # Meilisearch
 # -----------------------------
 
-client = meilisearch.Client("http://127.0.0.1:7700")
+client = meilisearch.Client(MEILISEARCH_URL)
 index = client.index("documents")
 
 
@@ -42,8 +71,12 @@ index = client.index("documents")
 # Documents + Semantic Search
 # -----------------------------
 
+DOCUMENTS_FILE = BASE_DIR / "crawler" / "all_documents.json"
+FAISS_INDEX_FILE = BASE_DIR / "documents.index"
+
+
 with open(
-    "crawler/all_documents.json",
+    DOCUMENTS_FILE,
     "r",
     encoding="utf-8"
 ) as file:
@@ -52,7 +85,9 @@ with open(
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-vector_index = faiss.read_index("documents.index")
+vector_index = faiss.read_index(
+    str(FAISS_INDEX_FILE)
+)
 
 
 # -----------------------------
@@ -65,7 +100,10 @@ def health_check():
     connection = get_connection()
     cursor = connection.cursor()
 
-    cursor.execute("SELECT COUNT(*) FROM documents;")
+    cursor.execute(
+        "SELECT COUNT(*) FROM documents;"
+    )
+
     document_count = cursor.fetchone()[0]
 
     cursor.close()
@@ -74,27 +112,47 @@ def health_check():
     return {
         "status": "healthy",
         "service": "PrivySearch API",
-        "meilisearch": "connected",
+        "meilisearch": "configured",
         "faiss": "connected",
         "postgresql": "connected",
         "documents_in_db": document_count
     }
+
+
+# -----------------------------
+# Privacy Information
+# -----------------------------
+
 @app.get("/api/privacy")
 def privacy_info():
+
     return {
         "privacy_by_design": True,
+
         "search_history": {
             "stored": False,
-            "description": "Search queries are not stored as permanent user history."
+            "description": (
+                "Search queries are not stored as permanent "
+                "user history."
+            )
         },
+
         "user_profiling": {
             "enabled": False,
-            "description": "No user profiles are created from search activity."
+            "description": (
+                "No user profiles are created from "
+                "search activity."
+            )
         },
+
         "tracking": {
             "third_party_trackers": False,
-            "description": "No unnecessary third-party tracking technologies are used."
+            "description": (
+                "No unnecessary third-party tracking "
+                "technologies are used."
+            )
         },
+
         "data_collection": {
             "query_storage": False,
             "user_identification": False
@@ -109,20 +167,30 @@ def privacy_info():
 @app.get("/api/evaluation")
 def evaluation_report():
 
+    evaluation_file = (
+        BASE_DIR
+        / "evaluation"
+        / "evaluation_report.json"
+    )
+
     with open(
-        "evaluation/evaluation_report.json",
+        evaluation_file,
         "r",
         encoding="utf-8"
     ) as file:
         report = json.load(file)
 
     return report
+
+
 # -----------------------------
 # Hybrid Search
 # -----------------------------
 
 @app.get("/api/search")
-def search(query: str = Query(..., min_length=1)):
+def search(
+    query: str = Query(..., min_length=1)
+):
 
     # =============================
     # Keyword Search
@@ -185,7 +253,9 @@ def search(query: str = Query(..., min_length=1)):
                 "semantic_score": 0.0
             }
 
-        combined[doc_id]["semantic_score"] = semantic_scores[rank]
+        combined[doc_id]["semantic_score"] = (
+            semantic_scores[rank]
+        )
 
 
     # =============================
